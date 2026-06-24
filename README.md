@@ -14,19 +14,19 @@ Goal (natural language string)
      │
      ▼
 ┌─────────────┐
-│   Planner   │  ← LLM call (Gemini): parse goal → structured step list
+│   Planner   │  ← LLM call : parse goal → structured step list
 └──────┬──────┘
        │  ExecutionPlan (ordered list of Steps)
        ▼
 ┌──────────────┐
-│ Orchestrator │  ← Routes steps to connectors, passes data, handles errors
-└──────┬───────┘
+│ Orchestrator │  ← Routes steps to connectors, passes data, handles errors 
+└──────┬───────┘   
        │  Runs each Step against the right Connector
        ▼
 ┌─────────────────────────────────────────┐
 │  Connectors (pluggable via Registry)    │
 │  ● GitHub    – fetch issues (READ)      │
-│  ● Gemini    – summarize/classify (LLM) │
+│  ● LLM    – summarize/classify (LLM)    │
 │  ● Email     – send via SMTP (WRITE)    │
 └──────┬──────────────────────────────────┘
        │  StepResult per step
@@ -35,7 +35,8 @@ Goal (natural language string)
 │ Trace Builder │  ← Assembles human-readable JSON trace + citations
 └───────────────┘
 ```
-
+Record every step: what was called, with what arguments, what came back, and which
+source items contributed to the final output
 **Data flows as a pipeline:** the output of Step N becomes the input of Step N+1, all mediated by the Orchestrator.
 
 ---
