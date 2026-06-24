@@ -1,0 +1,8 @@
+# Agentic Workflow Engine — Dependencies
+# ========================================
+# Intentionally minimal: only requests + dotenv.
+# No LangChain, no LangGraph — the orchestration logic is
+# explicit Python, fully inspectable and debuggable.
+
+requests>=2.31.0        # HTTP client for GitHub and Anthropic APIs
+python-dotenv>=1.0.0    # Load .env files automatically
