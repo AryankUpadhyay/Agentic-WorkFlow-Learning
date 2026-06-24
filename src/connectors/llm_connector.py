@@ -247,7 +247,7 @@ class _GeminiAdapter(_LLMAdapter):
 
     # Gemini has a fallback model chain — override call() to try it
     def call(
-        self, system: Optional[str], user: str, max_tokens: int = 1024
+        self, system: Optional[str], user: str, max_tokens: int = 4096
     ) -> str:
         last_error: Optional[Exception] = None
 

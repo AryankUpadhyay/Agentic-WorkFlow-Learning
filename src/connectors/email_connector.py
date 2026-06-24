@@ -123,7 +123,8 @@ class EmailConnector(BaseConnector):
 
         # Resolve body from upstream LLM summary if it's a placeholder
         if body == "__from_previous_step__" or not body:
-            body = self._get_upstream_text(context)
+            depends_on = params.get("depends_on")
+            body = self._get_upstream_text(context, depends_on)
 
         if not body:
             raise EmptyResultError("EmailConnector: no body text to send")
@@ -134,8 +135,9 @@ class EmailConnector(BaseConnector):
                 "or pass 'to' in params."
             )
 
-        # Collect all source IDs from the context for citation tracking
-        source_ids = self._collect_all_source_ids(context)
+        # Collect source IDs scoped to the upstream summarize step
+        depends_on = params.get("depends_on")
+        source_ids = self._collect_all_source_ids(context, depends_on)
 
         # Append citation footer if not already present in the body
         if source_ids and "Based on:" not in body:
@@ -221,29 +223,48 @@ class EmailConnector(BaseConnector):
     # Context helpers                                                      #
     # ------------------------------------------------------------------ #
 
-    def _get_upstream_text(self, context: Dict[int, Any]) -> str:
+    def _get_upstream_text(self, context: Dict[int, Any], depends_on: Optional[int] = None) -> str:
         """
-        Find the most recent string output in context (typically the LLM summary).
+        Find the upstream LLM summary text from context.
 
-        Scans steps in reverse order, looking for a string longer than 20 chars
-        (to skip short status messages).
+        Prefers the step pointed to by depends_on (the LLM summarize step).
+        Falls back to scanning in reverse order for the most recent string
+        longer than 20 chars, to skip short status messages.
         """
+        # Prefer the explicit upstream step set by _inject_upstream
+        if depends_on is not None and depends_on in context:
+            val = context[depends_on]
+            if isinstance(val, str) and len(val) > 20:
+                return val
+
+        # Fallback: scan in reverse (original behaviour)
         for step_id in sorted(context.keys(), reverse=True):
             val = context[step_id]
             if isinstance(val, str) and len(val) > 20:
                 return val
         return ""
 
-    def _collect_all_source_ids(self, context: Dict[int, Any]) -> List[str]:
+    def _collect_all_source_ids(self, context: Dict[int, Any], depends_on: Optional[int] = None) -> List[str]:
         """
-        Walk the entire context and collect all issue/message identifiers.
+        Collect issue/message identifiers for the citation footer.
 
-        These form the citations in the final trace, letting readers trace
-        exactly which source items contributed to the email.
+        When depends_on is provided (the LLM summarize step), we walk back
+        through its dependency chain to collect only the source IDs that
+        actually contributed to the summary — not every issue fetched.
+
+        Falls back to scanning the full context if depends_on is absent.
         """
-        seen = set()
+        seen: set = set()
         ids: List[str] = []
-        for val in context.values():
+
+        # Prefer scoped context: only the steps that fed the summary
+        candidate_step_ids = (
+            [depends_on] if depends_on is not None and depends_on in context
+            else list(context.keys())
+        )
+
+        for step_id in candidate_step_ids:
+            val = context[step_id]
             if isinstance(val, list):
                 for item in val:
                     if isinstance(item, dict) and "number" in item:
